@@ -1,5 +1,6 @@
+var debug = require('debug')('netatmo');
 var util = require('util');
-var EventEmitter = require("events").EventEmitter;
+var EventEmitter = require('events').EventEmitter;
 var request = require('request');
 var moment = require('moment');
 
@@ -41,6 +42,7 @@ netatmo.prototype.handleRequestError = function(err,response,body,message,critic
 
 // http://dev.netatmo.com/doc/authentication
 netatmo.prototype.authenticate = function(args, callback) {
+  debug("Authenticate");
   if (!args) {
     this.emit("error", new Error("Authenticate 'args' not set."));
     return this;
@@ -88,13 +90,18 @@ netatmo.prototype.authenticate = function(args, callback) {
     method: "POST",
     form: form,
   }, function(err, response, body) {
+
     if (err || response.statusCode != 200) {
       return this.handleRequestError(err,response,body,"Authenticate error", true);
     }
 
+    debug("Authenication Response:", response.statusCode);
+
     body = JSON.parse(body);
 
     access_token = body.access_token;
+
+    debug("Access token", access_token);
 
     if (body.expires_in) {
       setTimeout(this.authenticate_refresh.bind(this), body.expires_in * 1000, body.refresh_token);
@@ -477,9 +484,10 @@ netatmo.prototype.setSyncSchedule = function(options, callback) {
   return this;
 };
 
+
 // http://dev.netatmo.com/doc/restapi/setthermpoint
 netatmo.prototype.setThermpoint = function(options, callback) {
-  // Wait until authenticated.
+
   if (!access_token) {
     return this.on('authenticated', function() {
       this.setThermpoint(options, callback);
@@ -552,5 +560,50 @@ netatmo.prototype.setThermpoint = function(options, callback) {
 
   return this;
 };
+
+
+// https://dev.netatmo.com/doc/methods/gethomedata
+// GET /api/gethomedata?access_token=[YOURTOKEN]&home_id=[HOME_ID] HTTP/1.1   
+netatmo.prototype.getHomeData = function(callback) {
+  // Wait until authenticated.
+  if (!access_token) {
+    return this.on('authenticated', function() {
+      debug('getHomeData:onAuthenticated');
+      this.getHomeData(callback);
+    });
+  }
+
+  var url = util.format('%s/api/gethomedata?', BASE_URL);
+
+  var qs = {
+    access_token: access_token
+  };
+
+  request({
+    url: url,
+    method: "GET",
+    qs: qs
+  }, function(err, response, body) {
+    
+
+    if (err || response.statusCode != 200) {
+      return this.handleRequestError(err,response,body,"getHomeData error");
+    }
+
+    body = JSON.parse(body);
+
+    this.emit('get-homedata', err, body);
+
+    if (callback) {
+      return callback(err, body);
+    }
+
+    return this;
+
+  }.bind(this));
+
+  return this;
+};
+
 
 module.exports = netatmo;
