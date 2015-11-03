@@ -1,7 +1,7 @@
 var debug = require("debug")("netatmo:welcome");
 var log = require("debug")("netatmo:welcome:log");
 var request = require("request");
-
+var fs = require("fs");
 var netatmo = require("./netatmo");
 
 var auth = {
@@ -16,10 +16,21 @@ var api = new netatmo(auth);
 
 api.getHomeData(function(err, json) {
     var home = json.body.homes[0];
+    var lastEvent = home.events[0]
+    debug('events', lastEvent);
+
+    api.getCameraPicture({image_id: lastEvent.snapshot.id, key: lastEvent.snapshot.key}, function(err, data) {
+       
+        if (err) throw new Error("could not load image"); 
+        debug(Buffer.isBuffer(data));
+        
+        fs.writeFile('image.jpg', data, "binary", function(err) {
+            debug("Errors", err);
+        });
+    });
+
+    
     var camera = home.cameras[0];
-    log(camera);
-
-
     ping(camera.vpn_url)
     .then(function(resp) {
         var url = getLocalLiveStreamUrl(resp.local_url);
@@ -28,6 +39,7 @@ api.getHomeData(function(err, json) {
     .catch(function(err) {
         debug(err);
     });
+
 });
 
 function ping(vpn_url) {

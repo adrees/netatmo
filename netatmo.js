@@ -506,8 +506,7 @@ netatmo.prototype.setThermpoint = function(options, callback) {
 
   if (!options.module_id) {
     this.emit("error", new Error("setThermpoint 'module_id' not set."));
-    return this;
-  }
+    return this}
 
   if (!options.setpoint_mode) {
     this.emit("error", new Error("setThermpoint 'setpoint_mode' not set."));
@@ -573,6 +572,9 @@ netatmo.prototype.getHomeData = function(callback) {
     });
   }
 
+
+
+
   var url = util.format('%s/api/gethomedata?', BASE_URL);
 
   var qs = {
@@ -604,6 +606,67 @@ netatmo.prototype.getHomeData = function(callback) {
 
   return this;
 };
+
+
+// GET /api/getcamerapicture?image_id=[IMAGE_ID]&key=[KEY] HTTP/1.1  
+netatmo.prototype.getCameraPicture = function(options, callback) {
+  // Wait until authenticated.
+  if (!access_token) {
+    return this.on('authenticated', function() {
+      debug('getCameraPicture:onAuthenticated');
+      this.getHomeData(options, callback);
+    });
+  }
+
+  if (!options) {
+    this.emit("error", new Error("getCameraPicture 'options' not set."));
+    return this;
+  }
+
+  if (!options.image_id) {
+    this.emit("error", new Error("getCameraPicture'image_id' not set."));
+    return this;
+  }
+
+  if (!options.key) {
+    this.emit("error", new Error("getCameraPicture 'key' not set."));
+    return this;
+  }
+
+
+  var url = util.format('%s/api/getcamerapicture?', BASE_URL);
+
+  var qs = {
+    access_token: access_token,
+    key: options.key,
+    image_id: options.image_id
+  };
+
+  request({
+    url: url,
+    method: "GET",
+    qs: qs,
+    encoding: null
+  }, function(err, response, body) {
+   
+    if (err || response.statusCode != 200) {
+      return this.handleRequestError(err,response,body,"getCameraPicture error");
+    }
+
+    this.emit('get-camerapicture', err, body);
+
+    if (callback) {
+      return callback(err, body);
+    }
+
+    return this;
+
+  }.bind(this));
+
+  return this;
+};
+
+
 
 
 module.exports = netatmo;
